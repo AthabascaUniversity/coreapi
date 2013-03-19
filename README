@@ -1,0 +1,397 @@
+== Overview  ==
+
+Core Catalyst is the video streaming service in use by the university. It is an external service that makes use of content distribution networks to offload the bandwidth requirements. The e-lab is not the only service making use of the service. 
+
+At our request, an API for the Core Catalyst service has been created, which allows us to integrate their services with our own applications without having to make use of their web-based administration portal. This allows us to seamlessly integrate video uploading and embedding within an existing content workflow. 
+
+The API is a simple PHP object that provides methods for looking up a video based on its ID, and for uploading a new video into the system. 
+
+=== Requirements  ===
+
+The Core Catalyst API PHP Library has the following requirements: 
+
+  * PHP 5.x (has been tested on PHP 5.3.2, is untested on PHP 5.1.6, but should work). 
+  * cURL  
+  * [http://semlabs.co.uk/journal/object-oriented-curl-class-with-multi-threading SEM Labs' CURL Class] 
+  * Access to a mounted NAS share for backup (optional)
+
+=== Configuration  ===
+
+The start of the class defines several public variables, including variables for 
+
+  * API URL, 
+  * API Group Identifier (your group within AU), 
+  * API Username, and 
+  * API Password.
+
+This can be supplied within the library itself, by editing the following lines, or by modifying the object's attributes within your application. The latter of these approaches is preferred, as you can divorce your authentication credentials from the source. 
+  public $apiuser = "user";
+  public $apipwd = "password";
+  public $apiurl = "http://au.teacherstv.ca/api/video/";
+  public $apigroup = "ELAB";
+ 
+The following example shows how you might configure this as part of your application. 
+
+  $video = new coreapi();
+  $video->apiuser = $cfg->coreapi_user;
+  $video->apipwd = $cfg->coreapi_pwd;
+  $video->apiurl = $cfg->coreapi_url;
+  $video->apigroup = $cfg->coreapi_group;
+ 
+=== Attributes  ===
+
+The following attributes exist in the coreapi object. 
+
+Authentication / Configuration attributes: 
+
+  * apiuser (public) - The Core Catalyst user (as configured in the Administration Portal) 
+  * apipwd (public) - The Core Catalyst password (as configured in the Administration Portal) 
+  * apiurl (public) - The URL to the base Core Catalyst API (currently http://au.teacherstv.ca/api/video) 
+  * apigroup (public) - An identifier within Core Catalyst for your working group / department / centre. This is not set within Core Catalyst, but is used to identify videos within the system. 
+  * backup_video (public) - This is a configuration option that specifies whether the uploaded file is to be backed up on NAS or not. This is a boolean variable. 
+  * backup_location - The location of the NAS mount on the local system. 
+  * log_errors (public) - tells the Class whether to write errors to the system logs. 
+  * display_errors (public) - tells the Class whether to write errors to the screen. 
+  * apikey (public) - this is not yet implemented. 
+  * apisecret (public) - this is not yet implemented.
+
+Video-specific attributes: 
+
+  * title (public) - the title of the video within the Core Catalyst system. 
+  * description (public) - the video's description. 
+  * screenshot (public) - a URL to the automatically generated screenshot for the video. 
+  * created (public) - the date and time the video was created. 
+  * modified (public) - the date and time of the last modification to the video. 
+  * uploaded_by (public) - the name of the person who uploaded the video. 
+  * uploaded_by_username (public) - the username of the person who uploaded the video. 
+  * published_date (public) - the date the video was published 
+  * video_id (public) - The ID of the video within the Core Catalyst system. 
+  * video_url (public) - The URL of the video's XML file in the Core Catalyst system. This is a [http://en.wikipedia.org/wiki/Synchronized_Multimedia_Integration_Language SMIL file (XML)] that points to the video's raw MP4 and RTMP URLs. 
+  * access_key (public) - the internal identifier for the video within the Core Catalyst system. This can be used with the Core Catalyst video player. 
+  * video_status (public) - The current status of the video file in Core Catalyst's system. The following are status codes that might appear within this attribute: 
+     * -1 (Deleted) 
+     * 0 (New) 
+     * 1 (Downloading) 
+     * 2 (Downloaded) 
+     * 3 (Encoding) 
+     * 4 (Uploading) 
+     * 5 (Complete) 
+     * 9 (Error) 
+  * status (public) the status of the video record. This has the following possible values: 
+     * -1 (Deleted) 
+     * 1 (Available) 
+     * 2 (Submitted) 
+  * download (public) - determines if the media can be downloaded on the front-end. This has the following possible values: 
+     * 0 (No) 
+     * 1 (Yes) 
+     * 2 (Default - whatever the site is configured for) 
+  * embed (public) - determines if the media can be embedded from the front-end. 
+     * 0 (No) 
+     * 1 (Yes) 
+     * 2 (Default - whatever the site is configured for) 
+  * asset_type (public) - the type of asset of the video record. This has the following possible values: 
+     * 0 (Video) 
+     * 1 (Playlist)
+
+Category Attributes: 
+
+  * category - specifies a category's name 
+  * category_id - specifies a category ID 
+  * category_list - (array) contains a list of categories and category IDs 
+  * video_list - (array) contains a list of videos within a specific category
+  * sortcriteria - (string) specifies a sorting criteria.  Two criteria are currently implemented: index(default) and alpha. 
+
+Embedding Attributes: 
+
+  * embed_type (public) - determines whether coreapi::embed() uses flash or mobile embedding.  This has the following possible values: 
+     * flash - uses a Flash object 
+     * mobile - uses HTML5 <video> 
+  * embed_width (public) - determines the width of the video player 
+  * embed_height (public) - determines the height of the video player 
+  * embed_autoplay (public) - determines whether the video autoplays 
+  * embed_controls (public) (mobile-only) - determines whether the video has controls 
+  * embed_preload (public) (mobile-only) - determines whether the video preloads before playing.
+
+Other attributes: 
+
+  * curl_timeout (public) - this is a value, in seconds, that specifies how long cURL will attempt to connect to the CoreAPI. Default value is 1 second.
+  * version (public) - returns the version of the Core Catalyst API you are using. This could be useful for ensuring a minimum version requirement in your the application code. 
+  * video_file (public) - this is used when uploading a video file. 
+  * ch (private) - this is used within the class itself for libcurl, and is not accessible outside of the class's methods. 
+  * method (private) - this is used to specify which API method is being invoked when initializing libcurl. 
+  * error (public) - this is only used if there is an error when looking up the video file or uploading a video file. This will contain a string describing the encountered error, and is useful for troubleshooting and exception handling. 
+  * status_code - this is a static array that contains plain-language representations of the status codes returned from the API. 
+  * video_status_code - this is a static array that contains plain-language representations of the video status codes returned from the API.
+  * allowed_tags - used for storage of string data when uploading or updating video information.
+
+=== Methods  ===
+
+The following public methods are available in the PHP class: 
+
+  * embed(): returns an embed code for a specific video 
+  * get_info(): looks up video information from Core Catalyst 
+  * get_video_status(): returns the status of the uploaded video from Core Catalyst. 
+  * get_flash_url(): returns a URL for use in a Flash embed object. This is a helper function for embed(), but can be used outside of the class as well. 
+  * get_mp4_url(): returns a URL for use in an HTML <video> tag, or a direct URL for the MP4 file. This is a helper function for embed(), but can be used outside of the class as well. 
+  * upload_to_core(): uploads a new video file to Core Catalyst 
+  * get_categories(): retrieves a list of category IDs and names from the API 
+  * get_category_videos(): retrieves a list of videos within a specific category 
+  * set_category(): assigns a category to a specific video ID 
+  * unset_category(): removes a category assignment from a specific video ID
+
+There are also some private methods that exist only within the class: 
+
+  * callAPI(): This is a helper function to run a URL through cURL.  It is used by all methods except the upload method. 
+  * xml_attributes(): This is a helper function that looks up the value of an [@attribute] within some returned XML. 
+  * backup_video(): This is a helper function for the upload_to_core() method that handles backing up the uploaded video. 
+  * tattle(): This is a helper function for the class that reports errors.
+  * get_screenshot(): This is a helper function for the get_info() function that finds, validates, and returns a URL for the video's screenshot image.  
+
+==== embed() method  ====
+
+The embed() method builds and returns an object for embedding within an HTML page.  There are currently two types of embed objects that can be returned by coreapi::embed(): flash and mobile.  
+
+The following is an example of how the coreapi::embed() method can be used: 
+
+    include_once("libraries/coreapi/coreapi.php");
+    
+    // create the $video object
+    $video = new coreapi();
+    
+    // configure the connection
+    $video->apiuser = $cfg->coreapi_user;
+    $video->apipwd = $cfg->coreapi_pwd;
+    $video->apiurl = $cfg->coreapi_url;
+    
+    // set the video ID and embedding options
+    $video->video_id = "762";
+    $video->embed_width = $cfg->videoWidth;
+    $video->embed_height = $cfg->videoWidth / $cfg->aspectRatio;
+    $video->embed_type = 'flash';
+    
+    // load the video from the API
+    $video->getInfo();
+    
+    // build and print the embed code. 
+    print($video->embed());
+ 
+==== get_info() method  ====
+
+The get_info() method will query the Core Catalyst API for information on a specific video, specified by ID. The following is an example of how the get_info() method might be used. 
+
+    // include the PHP library
+    include_once("libraries/coreapi/coreapi.php");
+    
+    // instantiate the class
+    $video = new coreapi();
+    
+    // configure the connection
+    $video->apiuser = $cfg->coreapi_user;
+    $video->apipwd = $cfg->coreapi_pwd;
+    $video->apiurl = $cfg->coreapi_url;
+    
+    // specify the video's ID (this can be found in the Core Catalyst administration portal)
+    $video->video_id = "762";
+    
+    // call the method
+    $video->get_info();
+ 
+This will return data to the coreapi object ($video in this example). The object would look similar to this: 
+
+    object(coreapi)#4 (24) {
+      ["apiuser"]=>
+      string(20) "user@athabascau.ca"
+      ["apipwd"]=>
+      string(9) "password"
+      ["apiurl"]=>
+      string(40) "http://au.teacherstv.ca/api/video/index/"
+      ["apigroup"]=>
+      string(14) "AU_UNSPECIFIED"
+      ["ch":"coreapi":private]=>
+      resource(12) of type (curl)
+      ["video_id"]=>
+      string(3) "762"
+      ["video_url"]=>
+      string(72) "http://hwcdn.net/u3b9t4h3/fms/elab_eportfolio_tutorial1310404774.mp4.xml"
+      ["published_date"]=>
+      string(19) "2011-07-11 11:10:13"
+      ["status"]=>
+      string(1) "0"
+      ["video_status"]=>
+      string(1) "5"
+      ["download"]=>
+      string(1) "0"
+      ["uploaded_by"]=>
+      string(20) "darren@athabascau.ca"
+      ["access_key"]=>
+      string(21) "455G2OJiyA83o6yvdiFSC"
+      ["title"]=>
+      string(28) "elab_eportfolio_tutorial.m4v"
+      [screenshot] => 
+      string(58) http://wpc.64a2.edgecastcdn.net/0064A2/cds/screens/762.png
+      ["description"]=>
+      string(46) "Tutorial Video for the e-lab's portfolio site."
+      ["created"]=>
+      string(19) "2011-07-11 11:10:13"
+      ["modified"]=>
+      string(19) "2011-07-11 11:10:13"
+      ["asset_type"]=>
+      string(1) "0"
+      ["uploaded_by_username"]=>
+      string(20) "darren@athabascau.ca"
+      ["error"]=>
+      NULL
+      ["apikey"]=>
+      NULL
+      ["apisecret"]=>
+      NULL
+      ["method"]=>
+      string(9) "getStatus"
+      ["embed"]=>
+      string(1) "1"
+    }
+     
+====update_info() method====
+
+This method updates information for an existing video ID.
+
+The following is an example of how this method might be used:
+
+    $video = new coreapi();
+    $video->apiuser = $cfg->coreapi_user;
+    $video->apipwd = $cfg->coreapi_pwd;
+    $video->apiurl = $cfg->coreapi_url;
+    
+    $video->video_id = "732";
+    $video->title = "New Video Title.";
+    $video->description = "This is an updated description for the video.";
+    $video->published = 1; // 0 = not published, 1 = published, 2 = site default
+    $video->download = 2; // 0 = not downloadable, 1 = downloadable, 2 = site default
+    $video->embed = 2; // 0 = not embeddable, 1 = embeddable, 2 = site default
+    
+    if ($video->update_info() == true) {
+      echo "success!";
+    } else {
+      echo $video->error;
+    }
+     
+==== get_video_status() method  ====
+
+This function queries the API to see what the video status is on the Core Catalyst system. 
+
+  * The following values are returned: 
+  * -1 (Deleted) 
+  * 0 (New) 
+  * 1 (Downloading) 
+  * 2 (Downloaded) 
+  * 3 (Encoding) 
+  * 4 (Uploading to CDN) 
+  * 5 (Complete) 
+  * 9 (Error)
+
+You can use this in concert with the the $this->video_status_code array to get a plain-language status report. The following is an example of how the get_video_status() method might be used: 
+
+    $video = new coreapi();
+    $video->video_id = 123;
+    $status = $video->get_video_status();
+    print($video->video_status_code[$status]);
+
+ 
+==== get_categories() method<br>  ====
+
+This method retrieves a list of categories from the API.<br> 
+
+The following is an example of how the get_categories() method might be used:<br> 
+
+    $coreapi = new coreapi();
+    $coreapi-&gt;apiuser = $cfg-&gt;coreapi_user;
+    $coreapi-&gt;apipwd = $cfg-&gt;coreapi_pwd;
+    $coreapi-&gt;apiurl = $cfg-&gt;coreapi_url;
+    $coreapi-&gt;display_errors = true;
+    $coreapi-&gt;sortcriteria = 'alpha';
+    $coreapi-&gt;get_categories();
+    foreach ($coreapi-&gt;category_list as $key=&gt;$value) {
+      print("&lt;div class='category'&gt;Category ID: $key&lt;br/&gt; Category:$value&lt;br/&gt;&lt;/div&gt;";
+    }
+    
+==== get_categories_by_videoid() method<br>  ====
+
+This method retrieves a list of categories for a specific video&nbsp;ID and stores it as an array in $this-&gt;category_list. &nbsp;the following is an example of how the get_categories_by_videoid() method might be used:<br> 
+
+    $categories = new coreapi();
+    $categories-&gt;apiuser = $cfg-&gt;coreapi_user;
+    $categories-&gt;apipwd = $cfg-&gt;coreapi_pwd;
+    $categories-&gt;apiurl = $cfg-&gt;coreapi_url;
+    $categories-&gt;videoid=732;
+    $categories-&gt;sortcriteria = 'alpha';
+    $categories-&gt;get_categories_by_videoid();
+    foreach ($categories-&gt;category_list as $key=&gt;$value)&nbsp;{
+      print("&lt;div class='category'&gt;Category ID:&nbsp;$key&lt;br/&gt;&nbsp;Category:$value&lt;br/&gt;&lt;/div&gt;";
+    }
+
+==== get_category_videos() method  ====
+
+This method retrieves a list of videos for a specific category. The following is an example of how the get_category_videos() method might be used: 
+
+    $coreapi = new coreapi();
+    $coreapi-&gt;apiuser = $cfg-&gt;coreapi_user;
+    $coreapi-&gt;apipwd = $cfg-&gt;coreapi_pwd;
+    $coreapi-&gt;apiurl = $cfg-&gt;coreapi_url;
+    $coreapi-&gt;display_errors = true;
+    $coreapi-&gt;category_id = 32;
+    $coreapi-&gt;sortcriteria = 'index';
+    $coreapi-&gt;get_category_videos();
+    foreach ($coreapi-&gt;video_list as $key=&gt;$value) {
+      print("&lt;div class='category'&gt;Video ID: $key&lt;br/&gt; Title:$value&lt;br/&gt;&lt;/div&gt;";
+    }
+
+==== set_category() method ====
+
+This method assigns a specific category to a specific video.  The following is an example of how the set_category() method might be used:
+
+    $coreapi = new coreapi();
+    $coreapi->apiuser = $cfg->coreapi_user;
+    $coreapi->apipwd = $cfg->coreapi_pwd;
+    $coreapi->apiurl = $cfg->coreapi_url;
+    $coreapi->display_errors = true;
+    $coreapi->video_id = 732;
+    $coreapi->category_id = 32;
+    $coreapi->set_category();
+    
+
+==== unset_category() method ====
+
+This method removes a specific category assignment for a specific video.  The following is an example of how the set_category() method might be used:
+
+    $coreapi = new coreapi();
+    $coreapi->apiuser = $cfg->coreapi_user;
+    $coreapi->apipwd = $cfg->coreapi_pwd;
+    $coreapi->apiurl = $cfg->coreapi_url;
+    $coreapi->display_errors = true;
+    $coreapi->video_id = 732;
+    $coreapi->category_id = 32;
+    $coreapi->unset_category();
+
+==== upload_to_core method  ====
+
+Uploads a video file to the Core Catalyst system. For this, we assume the file already exists on the server, and that your application has handled the actual upload from the end client to the server. 
+
+If successful, the function will update the coreapi object with metadata and the video ID and return true. 
+
+The following is an example of how the upload_to_core() method might be used.  
+
+    // create the $video object
+    $video = new coreapi();
+    
+    // configure the connection
+    $video->apiuser = $cfg->coreapi_user;
+    $video->apipwd = $cfg->coreapi_pwd;
+    $video->apiurl = $cfg->coreapi_url;
+    
+    ...code to handle file upload
+    
+    $video->video_file = $filename;
+    $video->upload_to_core();
+
+ 
+ 
