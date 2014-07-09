@@ -46,12 +46,11 @@
   // future. 
   require_once("CURL.php");
 
-
 class coreapi {
 
   // added in a version attribute so we can do a quick check. Probably mostly 
   // useless, but it makes me feel better. :)
-  public $version = "0.9";
+  public $version = "1.0";
 
   // auth - this can be configured within the class, or as shown in the above
   // example, set as part of the application using the class. It's preferred 
@@ -137,7 +136,7 @@ class coreapi {
   // curl variables
   
   // timeout, in seconds, for curl connection
-  public $curl_batchsize = 10;
+  public $curl_batchsize = 10 ;
   public $curl_connect_timeout = 120;
   public $curl_timeout = 120;
   public $curl_info;
@@ -165,6 +164,42 @@ class coreapi {
     );
     
   public $allowed_tags = "<b><i><em><strong><p><u><ul><ol><li>";
+  
+  
+  /**
+    * Tests the connection, returns error value if no connection.
+    *
+    * Usage:
+    *
+    * // include the PHP library
+    * include_once("libraries/coreapi/coreapi.php");
+    * 
+    * // instantiate the class
+    * $video = new coreapi();
+    * 
+    * // configure the connection
+    * $video->apiuser = $cfg->coreapi_user;
+    * $video->apipwd = $cfg->coreapi_pwd;
+    * $video->apiurl = $cfg->coreapi_url;
+    * 
+    * if (!$video->test_connection()) {
+    *   print("No connection available.");
+    * }
+    *
+    *
+    * @param none
+    * @return mixed - returns true if connection successful, otherwise returns http result as int
+    */
+  public function test_connection() {
+
+    $this->get_categories();    
+    if ($this->curl_info[0]['http_code'] === 200) {
+      return true;
+    } else {
+      return $this->curl_info[0]['http_code'];
+    }
+  
+  }
   
   /**
     * retrieves information about a specific video from the Core Catalyst API.
@@ -322,7 +357,7 @@ class coreapi {
           if (!isset($item->getStatus->error)) {
             $vid = (string)$item->getStatus->result->video_id;  
             // yay valid search results! 
-            $this->video_list_details["{$vid}"]->video_id = $item->getStatus->result->video_id;
+            $this->video_list_details["{$vid}"]->video_id = $vid;
             $this->video_list_details["{$vid}"]->title = (string)$item->getStatus->result->title;
             $this->video_list_details["{$vid}"]->video_url = (string)$item->getStatus->result->video_url;
             $this->video_list_details["{$vid}"]->published_date = (string)$item->getStatus->result->published_date;
@@ -622,8 +657,7 @@ class coreapi {
         // and let's log this, so we can figure out what happened. 
         $this->tattle("An error occurred when querying the API: " . $xml->update->error);
         return false;
-      } 
-      else {    
+      } else {    
         return true;
       }
  
@@ -715,8 +749,7 @@ class coreapi {
     
     if ($xml->delete->status == "success") {
       return true;
-    } 
-    else {
+    } else {
       return false;
     }
   
@@ -830,8 +863,7 @@ class coreapi {
           // and let's log this, so we can figure out what happened. 
           $this->tattle("An error occurred when uploading the video: " . $xml->upload->error);
           return false;
-        } 
-        else {      
+        } else {      
           
           // success! Let's set the object's attributes with the data we get back.
           
@@ -847,8 +879,7 @@ class coreapi {
           $this->uploaded_by = (string)$xml->upload->result->uploaded_by;
           $this->uploaded_by_username = (string)$xml->upload->result->uploaded_by_username;
         }
-      } 
-      else {
+      } else {
         $this->tattle("A problem occurred when attempting to upload the video.");
         return false;
       }
@@ -919,8 +950,7 @@ class coreapi {
         
         return true; 
         
-      } 
-      else {
+      } else {
         $this->tattle("No categories were returned.");
         return false;
       }
@@ -963,7 +993,7 @@ class coreapi {
         $this->tattle("coreapi::get_category_videos - No data returned from API: $apicall");
         return false;
       }
-                  
+             
       // let's see if we get anything back!
       if (isset($xml->getCategoryVideoIds->result) && $xml->getCategoryVideoIds->count > 0) {
         // We need to convert the XML object to a keyed array we can work with.
@@ -989,6 +1019,7 @@ class coreapi {
 
           $this->video_id_list[] = (int)$val->video_id;
           
+          
           // BUGFIX: Now set it back.
           if (isset($display_errors)) {
             $this->display_errors = $display_errors;
@@ -997,7 +1028,7 @@ class coreapi {
             $this->log_errors = $log_errors;
           }
         }
-        
+
         $this->get_info_multi();
                 
         $videos = array();
@@ -1005,8 +1036,7 @@ class coreapi {
           foreach ($this->video_list_details as $val) {
               $videos[(int)"{$val->video_id}"] = (string)$this->video_list_details["{$val->video_id}"]->title;
           }
-        } 
-        else {
+        } else {
             $videos[(int)"{$video_list_details}"] = (string)$this->video_list_details->title;
         }
         
@@ -1021,8 +1051,7 @@ class coreapi {
 
         return true; 
         
-      } 
-      else {
+      } else {
         $this->tattle("No videos were returned.");
         return false;
       }
@@ -1103,8 +1132,7 @@ class coreapi {
         
         return true; 
         
-      } 
-      else {
+      } else {
         $this->tattle("No videos were returned.");
         return false;
       }
@@ -1192,8 +1220,7 @@ class coreapi {
       }
       return true; 
       
-    } 
-    else {
+    } else {
       $this->tattle("No videos were returned.");
       return false;
     }  
@@ -1228,8 +1255,7 @@ class coreapi {
   
     if ($xml->addVideoToCategory->status == "success") {
       return true;
-    } 
-    else {
+    } else {
       $this->tattle("Video ID {$this->video_id} was not assigned to category ID {$this->category_id}");
       return false;
     }
@@ -1266,8 +1292,7 @@ class coreapi {
   
     if ($xml->removeVideoFromCategory->status == "success") {
       return true;
-    } 
-    else {
+    } else {
       $this->tattle("Video ID {$this->video_id} was not assigned to category ID {$this->category_id}");
       return false;
     }
@@ -1329,8 +1354,7 @@ class coreapi {
     if (!rename($this->video_file,$this->backup_location . "/$filename")) {
       // OK, what'd you do?  There's no way you should get here.
       $this->tattle("A problem occurred while backup up the video file.");
-    } 
-    else {
+    } else {
       return true;
     }
   } // end coreapi::backup_video();
@@ -1345,264 +1369,99 @@ class coreapi {
     */
   
   private function callAPIMulti($apicalls, $apiurl = "") {
-  
-  
 
-  
-    // Let's use cURL like grownups do!
-    $curl = new CURL();
-    
-    // we need to authenticate, and we need to get results back as an object. 
     $opts = array(
-      // we're behind HTTPAuth, so send credentials
-      CURLOPT_USERPWD => $this->apiuser . ":" . $this->apipwd,
-      // we want to get the data back
-      CURLOPT_RETURNTRANSFER => true,
-      CURLOPT_POST => false,
-      CURLOPT_FOLLOWLOCATION => 1,
-      // if the site goes down, let's make sure we can bail
-      CURLOPT_CONNECTTIMEOUT => $this->curl_connect_timeout,
-      // the proxy can give a false positive on whether the site is 
-      // available or not. let's set a max time for curl to wait for 
-      // data to come back. 
-      CURLOPT_TIMEOUT => $this->curl_timeout,
-      );
-
-
-
-      if (is_array($apicalls)) {
-
-        // cURL basically times out with larger API calls; we need to batch the requests
-        // and merge them back into the returned array.    
-        $processed = 0;
-        $apicalls_total = sizeof($apicalls);
-      
-        //set up a counter.
-        $i = 1;
-
-        $xmlmulti = array();
-
-        foreach($apicalls as $apicall) {
-          $curl->addSession($apiurl . $apicall, $opts);
-          
-          // if we hit the batch size, run the cURL job. 
-          if ($i == $this->curl_batchsize  or $processed == $apicalls_total) {
-            $response = $curl->exec();
-            // get information about the connection
-            $this->curl_info = $curl->info();
-        
-            // clear the resource
-            $curl->clear();      
-            
-            if ($this->curl_info[0]['http_code'] == 0) {
-              $this->tattle("Could not connect to CoreAPI: $apicall");
-            }      
-            
-            // now, handle the output.  We only really expect two kinds of content: 
-            // XML and PNG.  So let's check for those, and handle them appropriately. 
-            if ($this->curl_info[0]['content_type'] == 'text/xml;charset=utf-8') {
-            
-            
-              if (is_string($response)) {
-                $xml = simplexml_load_string(trim($response));
-              } 
-              else {
-                $xml = $response;
-              }
-                              
-              foreach ($xml as $xmlitem) {
-        
-                // The cURL library returns different data types depending on how many
-                // records are returned.  If a single record is requested, a string is 
-                // returned. If more than one record is requested, an array is returned.
-                // This, obviously, means we have to check. 
-                if (is_object($xmlitem)) {
-                    $xmlitem = '<?xml version="1.0" encoding="UTF-8"?><Api_Service_Video generator="zend" version="1.0">' . $xmlitem->asXML() . "</Api_Service_Video>";
-                }
-                
-                $xmlitem = simplexml_load_string($xmlitem);
-                
-                if (isset($xmlitem->getStatus)) {
-                  $xmlmulti["{$xmlitem->getStatus->result->video_id}"] = $xmlitem;
-                } 
-                else if (isset($xmlitem->result)) {
-                  $xmlmulti["{$xmlitem->result->video_id}"] = $xmlitem;
-                }
-              }      
-            } 
-            else if ($this->curl_info[0]['content_type'] == 'image/png') {
-              // we're really only interested in whether it exists or not
-              if ($this->curl_info[0]['http_code'] == "200") {
-              } 
-              else {
-                $this->tattle("Error loading screenshot URL: HTTP Error " . $this->curl_info[0]['http_code']);
-              }
-            } 
-            else {
-              // we got back something we didn't expect. Let's be on the cautious
-              // side and return false. 
-              $this->tattle("Unexpected data returned: $response");
-            }
-            $i = 0;
-          }
-          $i++;
-          $processed++;
-        }
-        
-        if (isset($curl->sessions) && sizeof($curl->sessions > 0)) {
-        // Clean up any cURL sessions remaining.
-             $response = $curl->exec();
-            // get information about the connection
-            $this->curl_info = $curl->info();
-        
-            // clear the resource
-            $curl->clear();      
-            
-            if ($this->curl_info[0]['http_code'] == 0) {
-              $this->tattle("Could not connect to CoreAPI: $apicall");
-            }      
-            
-            // now, handle the output.  We only really expect two kinds of content: 
-            // XML and PNG.  So let's check for those, and handle them appropriately. 
-            if ($this->curl_info[0]['content_type'] == 'text/xml;charset=utf-8') {
-            
-            
-              if (is_string($response)) {
-                $xml = simplexml_load_string(trim($response));
-              } 
-              else {
-                $xml = $response;
-              }
-          
-              foreach ($xml as $xmlitem) {
-        
-                // The cURL library returns different data types depending on how many
-                // records are returned.  If a single record is requested, a string is 
-                // returned. If more than one record is requested, an array is returned.
-                // This, obviously, means we have to check. 
-                if (is_object($xmlitem)) {
-                    $xmlitem = '<?xml version="1.0" encoding="UTF-8"?><Api_Service_Video generator="zend" version="1.0">' . $xmlitem->asXML() . "</Api_Service_Video>";
-                }
-                
-                $xmlitem = simplexml_load_string($xmlitem);
-        
-                if (isset($xmlitem->getStatus)) {
-                  $xmlmulti["{$xmlitem->getStatus->result->video_id}"] = $xmlitem;
-                } 
-                else if (isset($xmlitem->result)) {
-                  $xmlmulti["{$xmlitem->result->video_id}"] = $xmlitem;
-                }
-              }      
-            } 
-            else if ($this->curl_info[0]['content_type'] == 'image/png') {
-              // we're really only interested in whether it exists or not
-              if ($this->curl_info[0]['http_code'] == "200") {
-              } 
-              else {
-                $this->tattle("Error loading screenshot URL: HTTP Error " . $this->curl_info[0]['http_code']);
-              }
-            } 
-            else {
-              // we got back something we didn't expect. Let's be on the cautious
-              // side and return false. 
-              $this->tattle("Unexpected data returned: $response");
-            }
-        }
- 
-        // return the xmlmulti object. 
-        return $xmlmulti;
-
-      } // end if (is_array($apicalls)) {}
-
-
-
-
-
-/*
-
-
-
-// old single-pass call to cURL
-  if (is_array($apicalls) ) {
+    // we're behind HTTPAuth, so send credentials
+    CURLOPT_USERPWD => $this->apiuser . ":" . $this->apipwd,
+    // we want to get the data back
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HEADER => $header,
+    CURLOPT_POST => false,
+    CURLOPT_FOLLOWLOCATION => 1,
+    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1',
+    // if the site goes down, let's make sure we can bail
+    CURLOPT_CONNECTTIMEOUT => $this->curl_connect_timeout,
+    // the proxy can give a false positive on whether the site is 
+    // available or not. let's set a max time for curl to wait for 
+    // data to come back. 
+    CURLOPT_TIMEOUT => $this->curl_timeout,
+    );
+  
+    $urls = array();
     foreach($apicalls as $apicall) {
-      $curl->addSession($apiurl . $apicall , $opts);
-    }
-        
-    $response = $curl->exec();
-    
-    // get information about the connection
-    $this->curl_info = $curl->info();
-
-    // clear the resource
-    $curl->clear();      
-    
-    if ($this->curl_info[0]['http_code'] == 0) {
-      $this->tattle("Could not connect to CoreAPI: $apicall");
-      return false;
-    }      
-    
-    // now, handle the output.  We only really expect two kinds of content: 
-    // XML and PNG.  So let's check for those, and handle them appropriately. 
-    if ($this->curl_info[0]['content_type'] == 'text/xml;charset=utf-8') {
-    
-    
-      if (is_string($response)) {
-        $xml = simplexml_load_string(trim($response));
-      } 
-      else {
-        $xml = $response;
-      }
-            
-      $xmlmulti = array();
-  
-      foreach ($xml as $xmlitem) {
-
-        // The cURL library returns different data types depending on how many
-        // records are returned.  If a single record is requested, a string is 
-        // returned. If more than one record is requested, an array is returned.
-        // This, obviously, means we have to check. 
-        if (is_object($xmlitem)) {
-            $xmlitem = '<?xml version="1.0" encoding="UTF-8"?><Api_Service_Video generator="zend" version="1.0">' . $xmlitem->asXML() . "</Api_Service_Video>";
-        }
-        
-        $xmlitem = simplexml_load_string($xmlitem);
-
-        if (isset($xmlitem->getStatus)) {
-          $xmlmulti["{$xmlitem->getStatus->result->video_id}"] = $xmlitem;
-        } 
-        else if (isset($xmlitem->result)) {
-          $xmlmulti["{$xmlitem->result->video_id}"] = $xmlitem;
-        }
-      }      
-      return $xmlmulti;
-    } 
-    else if ($this->curl_info[0]['content_type'] == 'image/png') {
-      // we're really only interested in whether it exists or not
-      if ($this->curl_info[0]['http_code'] == "200") {
-        return true;
-      } 
-      else {
-        $this->tattle("Error loading screenshot URL: HTTP Error " . $this->curl_info[0]['http_code']);
-        return false;
-      }
-    } 
-    else {
-      // we got back something we didn't expect. Let's be on the cautious
-      // side and return false. 
-      $this->tattle("Unexpected data returned: $response");
-      return false;
+      $urls[] = $apiurl . $apicall;
     }
     
+    $results = $this->multiRequest($urls, $opts);
     
-  } 
-  else {
-    $this->tattle("First parameter passed to callAPIMulti() must be an array.");
+    foreach($results as $result) {
+      $xmlitem = simplexml_load_string($result);
+      $xmlmulti["{$xmlitem->getStatus->result->video_id}"] = $xmlitem;
+      
+    }
+    return $xmlmulti;
   }
 
-*/
-  
-  
-  }
+  /**
+    * Helper function for cURL calls
+    */  
+  private function multiRequest($data, $options = array()) {
+   
+    // array of curl handles
+    $curly = array();
+    // data to be returned
+    $result = array();
+   
+    // multi handle
+    $mh = curl_multi_init();
+   
+    // loop through $data and create curl handles
+    // then add them to the multi-handle
+    foreach ($data as $id => $d) {
+   
+      $curly[$id] = curl_init();
+   
+      $url = (is_array($d) && !empty($d['url'])) ? $d['url'] : $d;
+      curl_setopt($curly[$id], CURLOPT_URL,            $url);
+      curl_setopt($curly[$id], CURLOPT_HEADER,         0);
+      curl_setopt($curly[$id], CURLOPT_RETURNTRANSFER, 1);
+   
+      // post?
+      if (is_array($d)) {
+        if (!empty($d['post'])) {
+          curl_setopt($curly[$id], CURLOPT_POST,       1);
+          curl_setopt($curly[$id], CURLOPT_POSTFIELDS, $d['post']);
+        }
+      }
+   
+      // extra options?
+      if (!empty($options)) {
+        curl_setopt_array($curly[$id], $options);
+      }
+   
+      curl_multi_add_handle($mh, $curly[$id]);
+    }
+   
+    // execute the handles
+    $running = null;
+    do {
+      curl_multi_exec($mh, $running);
+    } while($running > 0);
+   
+   
+    // get content and remove handles
+    foreach($curly as $id => $c) {
+      $result[$id] = curl_multi_getcontent($c);
+      curl_multi_remove_handle($mh, $c);
+    }
+   
+    // all done
+    curl_multi_close($mh);
+   
+    return $result;
+  }  
+
 
   /**
     * runs cURL, returns data
@@ -1634,7 +1493,6 @@ class coreapi {
     $response = $curl->exec();
     // get information about the connection
     $this->curl_info = $curl->info();
-    
     // clear the resource
     $curl->clear();      
     
@@ -1648,18 +1506,15 @@ class coreapi {
     if ($this->curl_info[0]['content_type'] == 'text/xml;charset=utf-8') {
       $xml = simplexml_load_string(trim($response));
       return $xml;
-    } 
-    else if ($this->curl_info[0]['content_type'] == 'image/png') {
+    } else if ($this->curl_info[0]['content_type'] == 'image/png') {
       // we're really only interested in whether it exists or not
       if ($this->curl_info[0]['http_code'] == "200") {
         return true;
-      } 
-      else {
+      } else {
         $this->tattle("Error loading screenshot URL: HTTP Error " . $this->curl_info[0]['http_code']);
         return false;
       }
-    } 
-    else {
+    } else {
       // we got back something we didn't expect. Let's be on the cautious
       // side and return false. 
       $this->tattle("Unexpected data returned: $response");
@@ -1705,3 +1560,4 @@ class coreapi {
       }
 
 } // end coreapi class
+
